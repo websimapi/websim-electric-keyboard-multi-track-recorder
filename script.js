@@ -245,12 +245,14 @@ class ElectricKeyboard {
 
     async startAudioCapture() {
         try {
-            // Request microphone access
-            this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+            // Request browser tab audio capture
+            this.mediaStream = await navigator.mediaDevices.getDisplayMedia({ 
+                video: false,
                 audio: {
                     echoCancellation: false,
                     noiseSuppression: false,
-                    autoGainControl: false
+                    autoGainControl: false,
+                    systemAudio: 'include'
                 }
             });
             
@@ -263,13 +265,13 @@ class ElectricKeyboard {
             // Update UI
             document.getElementById('startAudioCapture').disabled = true;
             document.getElementById('stopAudioCapture').disabled = false;
-            document.getElementById('transcriptionNotes').innerHTML = '<div style="color: #48bb78;">Listening for audio...</div>';
+            document.getElementById('transcriptionNotes').innerHTML = '<div style="color: #48bb78;">Listening to browser tab audio...</div>';
             
-            console.log('Started audio capture and pitch detection');
+            console.log('Started browser tab audio capture and pitch detection');
             
         } catch (error) {
-            console.error('Error accessing microphone:', error);
-            alert('Unable to access microphone. Please check permissions.');
+            console.error('Error accessing browser tab audio:', error);
+            alert('Unable to access browser tab audio. Please select a tab with audio and grant permission.');
         }
     }
 
@@ -385,7 +387,7 @@ class ElectricKeyboard {
         document.getElementById('stopAudioCapture').disabled = true;
         document.getElementById('playTranscription').disabled = this.transcribedNotes.length === 0;
         
-        console.log(`Stopped audio capture. Transcribed ${this.transcribedNotes.length} notes.`);
+        console.log(`Stopped browser tab audio capture. Transcribed ${this.transcribedNotes.length} notes.`);
     }
 
     updateTranscriptionDisplay() {
