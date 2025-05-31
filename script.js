@@ -245,14 +245,13 @@ class ElectricKeyboard {
 
     async startAudioCapture() {
         try {
-            // Request browser tab audio capture
+            // Request browser tab audio capture (audio only)
             this.mediaStream = await navigator.mediaDevices.getDisplayMedia({ 
                 video: false,
                 audio: {
                     echoCancellation: false,
                     noiseSuppression: false,
-                    autoGainControl: false,
-                    systemAudio: 'include'
+                    autoGainControl: false
                 }
             });
             
