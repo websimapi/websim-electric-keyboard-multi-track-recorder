@@ -311,6 +311,63 @@ select {
     cursor: pointer;
 }
 
+.audio-transcription-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.audio-transcription-section h2 {
+    margin-bottom: 15px;
+    color: #4a5568;
+}
+
+.transcription-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.transcription-display {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 15px;
+    background: white;
+}
+
+#scoreCanvas {
+    width: 100%;
+    height: 200px;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    background: white;
+}
+
+.transcription-notes {
+    background: #f7fafc;
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 50px;
+    font-family: monospace;
+    font-size: 0.9em;
+    color: #4a5568;
+}
+
+.note-item {
+    display: inline-block;
+    margin: 2px 5px;
+    padding: 4px 8px;
+    background: #667eea;
+    color: white;
+    border-radius: 15px;
+    font-size: 0.8em;
+}
+
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
@@ -338,4 +395,3 @@ select {
         margin: 0 -12px;
     }
 }
-

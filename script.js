@@ -11,6 +11,12 @@ class ElectricKeyboard {
         this.recordingTrack = null;
         this.playingTracks = new Set();
         
+        // Audio transcription properties
+        this.mediaStream = null;
+        this.isRecordingAudio = false;
+        this.transcribedNotes = [];
+        this.pitchAnalyzer = null;
+        
         this.init();
     }
 
@@ -83,6 +89,12 @@ class ElectricKeyboard {
 
         // Track controls
         document.getElementById('addTrack').addEventListener('click', () => this.addTrack());
+        
+        // Audio transcription controls
+        document.getElementById('startAudioCapture').addEventListener('click', () => this.startAudioCapture());
+        document.getElementById('stopAudioCapture').addEventListener('click', () => this.stopAudioCapture());
+        document.getElementById('playTranscription').addEventListener('click', () => this.playTranscription());
+        document.getElementById('clearTranscription').addEventListener('click', () => this.clearTranscription());
     }
 
     setupKeyboardListeners() {
@@ -229,6 +241,284 @@ class ElectricKeyboard {
 
     stopAllTracks() {
         this.tracks.forEach(track => track.stop());
+    }
+
+    async startAudioCapture() {
+        try {
+            // Request microphone access
+            this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
+            
+            this.isRecordingAudio = true;
+            this.transcribedNotes = [];
+            
+            // Set up pitch detection
+            this.setupPitchDetection();
+            
+            // Update UI
+            document.getElementById('startAudioCapture').disabled = true;
+            document.getElementById('stopAudioCapture').disabled = false;
+            document.getElementById('transcriptionNotes').innerHTML = '<div style="color: #48bb78;">Listening for audio...</div>';
+            
+            console.log('Started audio capture and pitch detection');
+            
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            alert('Unable to access microphone. Please check permissions.');
+        }
+    }
+
+    setupPitchDetection() {
+        const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+        const analyser = this.audioContext.createAnalyser();
+        
+        analyser.fftSize = 4096;
+        analyser.smoothingTimeConstant = 0.8;
+        
+        source.connect(analyser);
+        
+        this.pitchAnalyzer = analyser;
+        this.startPitchAnalysis();
+    }
+
+    startPitchAnalysis() {
+        const bufferLength = this.pitchAnalyzer.frequencyBinCount;
+        const dataArray = new Float32Array(bufferLength);
+        
+        const analyzePitch = () => {
+            if (!this.isRecordingAudio) return;
+            
+            this.pitchAnalyzer.getFloatFrequencyData(dataArray);
+            
+            const pitch = this.detectPitch(dataArray);
+            if (pitch > 0) {
+                const note = this.frequencyToNote(pitch);
+                if (note) {
+                    this.addTranscribedNote(note, this.audioContext.currentTime);
+                }
+            }
+            
+            requestAnimationFrame(analyzePitch);
+        };
+        
+        analyzePitch();
+    }
+
+    detectPitch(frequencyData) {
+        let maxAmp = -Infinity;
+        let maxIndex = 0;
+        
+        // Find the frequency bin with the highest amplitude
+        for (let i = 0; i < frequencyData.length; i++) {
+            if (frequencyData[i] > maxAmp) {
+                maxAmp = frequencyData[i];
+                maxIndex = i;
+            }
+        }
+        
+        // Convert bin index to frequency
+        if (maxAmp > -50) { // Threshold to filter out noise
+            return (maxIndex * this.audioContext.sampleRate) / (this.pitchAnalyzer.fftSize * 2);
+        }
+        
+        return 0;
+    }
+
+    frequencyToNote(frequency) {
+        const A4 = 440;
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        
+        if (frequency < 80 || frequency > 2000) return null; // Filter out extreme frequencies
+        
+        const semitoneOffset = Math.round(12 * Math.log2(frequency / A4));
+        const octave = Math.floor((semitoneOffset + 9) / 12) + 4;
+        const noteIndex = (semitoneOffset + 9) % 12;
+        
+        if (noteIndex < 0) return null;
+        
+        return {
+            name: noteNames[noteIndex] + octave,
+            frequency: frequency,
+            note: noteNames[noteIndex],
+            octave: octave
+        };
+    }
+
+    addTranscribedNote(noteData, timestamp) {
+        // Avoid duplicate consecutive notes
+        const lastNote = this.transcribedNotes[this.transcribedNotes.length - 1];
+        if (lastNote && lastNote.name === noteData.name && timestamp - lastNote.timestamp < 0.1) {
+            lastNote.duration = timestamp - lastNote.timestamp;
+            return;
+        }
+        
+        // End previous note if different
+        if (lastNote && lastNote.name !== noteData.name) {
+            lastNote.duration = timestamp - lastNote.timestamp;
+        }
+        
+        this.transcribedNotes.push({
+            ...noteData,
+            timestamp: timestamp,
+            duration: 0.5 // Default duration
+        });
+        
+        this.updateTranscriptionDisplay();
+        this.drawScore();
+    }
+
+    stopAudioCapture() {
+        this.isRecordingAudio = false;
+        
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream = null;
+        }
+        
+        // Update UI
+        document.getElementById('startAudioCapture').disabled = false;
+        document.getElementById('stopAudioCapture').disabled = true;
+        document.getElementById('playTranscription').disabled = this.transcribedNotes.length === 0;
+        
+        console.log(`Stopped audio capture. Transcribed ${this.transcribedNotes.length} notes.`);
+    }
+
+    updateTranscriptionDisplay() {
+        const notesDiv = document.getElementById('transcriptionNotes');
+        notesDiv.innerHTML = this.transcribedNotes.map(note => 
+            `<span class="note-item">${note.name}</span>`
+        ).join('');
+    }
+
+    drawScore() {
+        const canvas = document.getElementById('scoreCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw staff lines
+        const staffTop = 60;
+        const lineSpacing = 20;
+        
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        
+        for (let i = 0; i < 5; i++) {
+            const y = staffTop + i * lineSpacing;
+            ctx.beginPath();
+            ctx.moveTo(20, y);
+            ctx.lineTo(canvas.width - 20, y);
+            ctx.stroke();
+        }
+        
+        // Draw notes
+        const noteWidth = 30;
+        let x = 40;
+        
+        this.transcribedNotes.slice(-20).forEach((note, index) => { // Show last 20 notes
+            const notePosition = this.getNotePosition(note.name, staffTop, lineSpacing);
+            
+            // Draw note
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.ellipse(x, notePosition, 8, 6, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Draw stem
+            ctx.beginPath();
+            ctx.moveTo(x + 8, notePosition);
+            ctx.lineTo(x + 8, notePosition - 30);
+            ctx.stroke();
+            
+            // Draw note name below staff
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText(note.name, x - 10, staffTop + 120);
+            
+            x += noteWidth;
+        });
+    }
+
+    getNotePosition(noteName, staffTop, lineSpacing) {
+        const notePositions = {
+            'E5': staffTop - lineSpacing,     // Above staff
+            'D5': staffTop - lineSpacing/2,  // Top line
+            'C5': staffTop,                  // Space
+            'B4': staffTop + lineSpacing/2,  // Line
+            'A4': staffTop + lineSpacing,    // Space
+            'G4': staffTop + lineSpacing * 1.5, // Line
+            'F4': staffTop + lineSpacing * 2,    // Space
+            'E4': staffTop + lineSpacing * 2.5,  // Line
+            'D4': staffTop + lineSpacing * 3,    // Space
+            'C4': staffTop + lineSpacing * 3.5,  // Bottom line
+            'B3': staffTop + lineSpacing * 4,    // Below staff
+        };
+        
+        // Extract note without octave for basic positioning
+        const baseNote = noteName.slice(0, -1);
+        const octave = parseInt(noteName.slice(-1));
+        
+        // Default position if not found
+        let position = staffTop + lineSpacing * 2;
+        
+        if (notePositions[noteName]) {
+            position = notePositions[noteName];
+        } else {
+            // Approximate position based on octave
+            const basePositions = {
+                'C': 0, 'D': 0.5, 'E': 1, 'F': 1.5, 'G': 2, 'A': 2.5, 'B': 3
+            };
+            const basePos = basePositions[baseNote.replace('#', '')] || 2;
+            position = staffTop + lineSpacing * (basePos + (4 - octave) * 3.5);
+        }
+        
+        return position;
+    }
+
+    playTranscription() {
+        if (this.transcribedNotes.length === 0) return;
+        
+        console.log('Playing transcribed notes...');
+        
+        let currentTime = this.audioContext.currentTime;
+        
+        this.transcribedNotes.forEach((noteData, index) => {
+            setTimeout(() => {
+                this.playTranscribedNote(noteData.frequency, noteData.duration);
+            }, index * 300); // Play notes with 300ms intervals
+        });
+    }
+
+    playTranscribedNote(frequency, duration) {
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.type = this.waveform;
+        oscillator.frequency.value = frequency;
+        
+        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + this.attack);
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + duration);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.masterGain);
+        
+        oscillator.start();
+        oscillator.stop(this.audioContext.currentTime + duration);
+    }
+
+    clearTranscription() {
+        this.transcribedNotes = [];
+        this.updateTranscriptionDisplay();
+        this.drawScore();
+        document.getElementById('playTranscription').disabled = true;
+        document.getElementById('transcriptionNotes').innerHTML = '<div style="color: #718096;">No transcribed notes yet...</div>';
     }
 }
 
@@ -469,4 +759,3 @@ class Track {
 document.addEventListener('DOMContentLoaded', () => {
     const keyboard = new ElectricKeyboard();
 });
-

@@ -38,6 +38,32 @@
             </button>
         </div>
 
+        <div class="audio-transcription-section">
+            <h2>Audio Transcription</h2>
+            <div class="transcription-controls">
+                <button id="startAudioCapture" class="btn btn-primary">
+                    <span class="icon">🎤</span>
+                    Record Audio
+                </button>
+                <button id="stopAudioCapture" class="btn btn-danger" disabled>
+                    <span class="icon">⏹</span>
+                    Stop Recording
+                </button>
+                <button id="playTranscription" class="btn btn-success" disabled>
+                    <span class="icon">▶</span>
+                    Play Transcription
+                </button>
+                <button id="clearTranscription" class="btn btn-secondary">
+                    <span class="icon">🗑</span>
+                    Clear
+                </button>
+            </div>
+            <div class="transcription-display">
+                <canvas id="scoreCanvas" width="800" height="200"></canvas>
+                <div id="transcriptionNotes" class="transcription-notes"></div>
+            </div>
+        </div>
+
         <div class="keyboard-section">
             <div class="keyboard-controls">
                 <div class="control-group">
@@ -80,4 +106,3 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
-
